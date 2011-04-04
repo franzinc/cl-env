@@ -202,7 +202,7 @@
     (declare (ignore env))
     (values :variable `((,(caddr declaration) variable-rebinding ,(cadr declaration))))))
 
-(define-declaration excl::struct-by-value (ftype int-offset float-offset &rest vars)
+(define-declaration excl::struct-by-value (ftype int-offset other-offset &rest vars)
   nil ;; No global declarations!
   :variable
   (lambda (declaration env)
