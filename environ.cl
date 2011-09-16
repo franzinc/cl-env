@@ -1585,9 +1585,9 @@ with locatives allowed."))
   ;; at the top of the hash value).
   (when environment
     (mapha$h
-     #'(lambda (k v)
-	 (let ((temp (cadar v)))
-	   (funcall fcn k (car temp) (cadr temp))))
+     #'(lambda (name res)
+	 (let ((ent (cadar res)))
+	   (funcall fcn name (car ent) (cadr ent) (cddar res) (cddr ent)))) ;; [bug20462]
      (augmentable-environment-variable-hashtable
       (augmentable-environment-base environment)))))
 
@@ -1600,10 +1600,33 @@ with locatives allowed."))
   ;; at the top of the hash value).
   (when environment
     (mapha$h
-     #'(lambda (k v)
-	 (let ((temp (cadar v)))
-	   (funcall fcn k (car temp) (cadr temp))))
+     #'(lambda (name res)
+	 (let ((ent (cadar res)))
+	   (funcall fcn name (car ent) (cadr ent) (cddar res) (cddr ent)))) ;; [bug20462]
      (augmentable-environment-function-hashtable
+      (augmentable-environment-base environment)))))
+
+(defun entry-atom (key)
+  (if (consp key) (car key) key))
+
+(defun map-over-environment-declarations (fcn environment)
+  ;; Calls fcn with the top declaration in env.
+  ;; The order of definition of the variables is lost.
+  ;;  This is only intended to work for interpreted environments, and
+  ;; assumes that the environment-popping is being done properly by
+  ;; the interpreter (thus leaving the current value of the function
+  ;; at the top of the hash value).
+  (when environment
+    (mapha$h
+     #'(lambda (name ent)
+	 (let* ((prop (cdr (assoc name *declare-declare-props* :test #'eq)))
+		(lexval (and prop (copy-list (cadar ent))))
+		(globval (and prop (ce-get name prop)))
+		(res (and lexval (delete-duplicates lexval :test #'eq :key #'entry-atom :from-end t))))
+	   (setq res (set-difference res globval :test #'equal))
+	   (and prop
+		(funcall fcn (cons name res)))))
+     (augmentable-environment-declaration-hashtable
       (augmentable-environment-base environment)))))
 
 (defun map-over-current-environment-variables (fcn environment)
@@ -1715,6 +1738,7 @@ with locatives allowed."))
   (let ((valid '(:variable :function :both :declare))
 	(name (if (consp namespec) (car namespec) namespec))
 	(lnames (if (consp namespec) (cdr namespec) (list namespec)))
+	(compound (and (consp namespec) (not (null (cdr namespec)))))
 	rdef syntax)
     (unless (listp lambda-list)
       (env-type-error lambda-list 'list))
@@ -1749,6 +1773,8 @@ with locatives allowed."))
 	     (:declare
 	      `((pushnew (cons ',name ',prop) *declare-declare-props*
 			 :test #'equal)))))
+       ,@(when compound
+	   `((setf (get ',name 'compound-declaration) t)))
        ,@(loop for lname in lnames
 	     collect `(pushnew ',lname (get 'declaration '.declaration.))
 	     collect `(setf (get ',lname 'declaration-kind) ,kind)
@@ -1804,6 +1830,22 @@ with locatives allowed."))
 			   (eq (car  var) 'function)
 			   (fspec-equal-p (cadr var) name)))
 	      (return-from find-in-declaration t))))))))
+
+(defun reconstruct-declarations (name env-decls)
+  (mapcar
+   #'(lambda (decl)
+       (let ((declname (car decl))
+	     (args (cdr decl))
+	     pos)
+	 (when (get declname 'sys::compound-declaration)
+	   (setq declname (car args)
+		 args (cdr args)))
+	 (setq pos (position :names (get declname 'sys::declaration-syntax)))
+	 (when (and pos (not (eql pos (length args))))
+	   (excl::.error "wrong number of arguments to declaration ~s: expected ~d and got ~s."
+		   declname pos args))
+	 `(,declname ,@args ,@(when pos (list name)))))
+   env-decls))
 
 (defun declaration-kind (decl)
   (ce-get (car decl) 'declaration-kind))
