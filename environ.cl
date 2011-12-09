@@ -777,7 +777,7 @@ with locatives allowed."))
 		  (ce-putprop (car pdecls) (cdr pdecls) (cdr ent) env)))))))
   nil)
 
-(defun simple-augment-environment (environment declare reuse name locative vtype ftype &optional etype)
+(defun simple-augment-environment (environment declare reuse name locative vtype ftype)
   ;; This version of the implementation of augment-environment is
   ;; much simpler than augment-environment-1, below, but it does not
   ;; handle multiple definitions, nor does it handle block and tag names.
@@ -786,7 +786,7 @@ with locatives allowed."))
   ;; to a compiler macro (not given in this package) to transform a call
   ;; to augment-environment to a call to this function.
   (macrolet ((do-glob (env)
-	       `(simple-augment-env-globally ,env declare name locative vtype ftype etype)))
+	       `(simple-augment-env-globally ,env declare name locative vtype ftype nil)))
     (unless environment
       (return-from simple-augment-environment
 	(do-glob nil)))
@@ -804,8 +804,7 @@ with locatives allowed."))
 		     (augmentable-environment-kind environment)
 		     environment base new-index)))
 	     (vht (augmentable-environment-variable-hashtable base))
-	     (fht (augmentable-environment-function-hashtable base))
-	     (eht (augmentable-environment-expression-hashtable base)))
+	     (fht (augmentable-environment-function-hashtable base)))
 	(macrolet ((pushit (key type tab loc)
 		     `(if (listp ,key)
 			  (loop for v in ,key
@@ -824,16 +823,6 @@ with locatives allowed."))
 	    (pushit name vtype vht locative))
 	  (when ftype
 	    (pushit name ftype fht locative))
-	  (when etype
-	    (unless eht
-	      (setq eht (make-ha$h-table :test 'eq :size 50))
-	      (setf (augmentable-environment-expression-hashtable base) eht))
-	    (let* ((ents (getha$h name eht))
-		   (ent (assoc new-index ents))
-		   (new-elem (list* etype locative t)))
-	      (if ent
-		  (push new-elem (cdr ent))
-		(push (list new-index new-elem) (getha$h name eht)))))
 	  (augment-declarations base new new-index vht fht declare))
 	new))))
 
