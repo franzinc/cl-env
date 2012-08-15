@@ -138,11 +138,12 @@
 ;; This function might be redefined in the implementation's compiler:
 
 (defun type-declaration-handler (declaration env)
-    (declare (ignore env))
-    (values :variable
-	    (let ((spec (list (car declaration) (cadr declaration))))
-	      (mapcar #'(lambda (x) (cons x spec))
-		      (cddr declaration)))))
+  (declare (ignore env)
+	   (:discard-source-file-info))
+  (values :variable
+	  (let ((spec (list (car declaration) (cadr declaration))))
+	    (mapcar #'(lambda (x) (cons x spec))
+		    (cddr declaration)))))
 
 (define-declaration type (typespec &rest vars)
   .type.
