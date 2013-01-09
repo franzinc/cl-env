@@ -68,29 +68,32 @@
 	   new)
       (pop declaration)
       (dolist (decl declaration)
-	(let ((name (if (consp decl) (car decl) decl))
-	      (value (if (consp decl) (cadr decl) 3)))
-	  (case name
-	    (debug
-	     (unless (and debug (eql value (cadr debug)))
-	       (setq debug (list 'debug value))
-	       (push debug new)))
-	    (compilation-speed
-	     (unless (and compilation-speed (eql value (cadr compilation-speed)))
-	       (setq compilation-speed (list 'compilation-speed value))
-	       (push compilation-speed new)))
-	    (speed
-	     (unless (and speed (eql value (cadr speed)))
-	       (setq speed (list 'speed value))
-	       (push speed new)))
-	    (space
-	     (unless (and space (eql value (cadr space)))
-	       (setq space (list 'space value))
-	       (push space new)))
-	    (safety
-	     (unless (and safety (eql value (cadr safety)))
-	       (setq safety (list 'safety value))
-	       (push safety new))))))
+	;; [bug21547]:
+	(if (and (consp decl) (cddr decl))
+	    (warn "Ignoring unsyntactic optimize declaration ~s." decl)
+	  (let ((name (if (consp decl) (car decl) decl))
+		(value (if (consp decl) (cadr decl) 3)))
+	    (case name
+	      (debug
+	       (unless (and debug (eql value (cadr debug)))
+		 (setq debug (list 'debug value))
+		 (push debug new)))
+	      (compilation-speed
+	       (unless (and compilation-speed (eql value (cadr compilation-speed)))
+		 (setq compilation-speed (list 'compilation-speed value))
+		 (push compilation-speed new)))
+	      (speed
+	       (unless (and speed (eql value (cadr speed)))
+		 (setq speed (list 'speed value))
+		 (push speed new)))
+	      (space
+	       (unless (and space (eql value (cadr space)))
+		 (setq space (list 'space value))
+		 (push space new)))
+	      (safety
+	       (unless (and safety (eql value (cadr safety)))
+		 (setq safety (list 'safety value))
+		 (push safety new)))))))
       (setq new (nreverse new))
       (if env
 	  (setq base (nconc new base))
