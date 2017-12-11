@@ -187,12 +187,23 @@
     (declare (ignore env))
     (values :variable `((,(caddr declaration) variable-rebinding ,(cadr declaration))))))
 
-(define-declaration excl::struct-by-value (ftype int-offset other-offset &rest vars)
+(define-declaration excl::struct-by-value (ftype int-offset float-offset stack-offset &rest vars)
   nil ;; No global declarations!
   :variable
   (lambda (declaration env)
     (declare (ignore env))
-    (values :variable `((,(fifth declaration) excl::struct-by-value (,(second declaration) ,(third declaration) ,(fourth declaration)))))))
+    (values :variable
+	    ;; In 10.1 and earlier we track a foreign-type name and two index indicators: count and altcount
+	    #-(version>= 10 2)
+	    `((,(fifth declaration) excl::struct-by-value (,(second declaration) ;; ftype
+							   ,(third declaration) ;; count
+							   ,(fourth declaration)))) ;; altcount
+	    ;; In 10.2 we split the altcount into fcount (for a float index) and scount (for a stack index)
+	    #+(version>= 10 2)
+	    `((,(sixth declaration) excl::struct-by-value (,(second declaration) ;; ftype
+							   ,(third declaration) ;; icount
+							   ,(fourth declaration) ;; fcount
+							   ,(fifth declaration))))))) ;; scount
 
 ) ;; without-package-locks
 
