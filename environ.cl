@@ -4,14 +4,6 @@
 ;;
 ;; See the file LICENSE for the full license governing this code.
 
-#+(version= 8 1)
-(sys:defpatch "environ" 3
-  "v1: add ensure-compiled-execution and with-compiled-body.
-v2: fix package error in v1.
-v3: fix walking for methods with ensure-compiled-execution forms."
-  :type :system
-  :post-loadable t)
-
 #+sbcl
 (defpackage :system
   (:use :common-lisp)
@@ -1406,16 +1398,18 @@ with locatives allowed."))
 	     (let ((ent (cadar res)))
 	       (unless (eq :free (car ent))
 		 (return-from function-information
-		   (values (car ent) (cadr ent) (cddar res) (cddr ent))))
-	       ;; we may have to deal with lexically shadowed
-	       ;; items under this free declaration.
-	       (setq decls (cddar res))))
-	   ;; Look at global environment as well.
+		   (values (car ent) (cadr ent) (cddar res) (cddr ent))))))
+	   ;; Look at global environment first.
 	   (when all-declarations
 	     (loop for x in *function-declare-props*
 		 do (let ((res (ce-get fspec (cdr x) environment)))
 		      (when res
 			(push (list (car x) res) decls)))))
+	   ;; If the binding was a free binding, we want it to shadow any
+	   ;; declarations that were just gathered.
+	   (if* decls
+	      then (setq decls (append (cddar res) decls))
+	      else (setq decls (cddar res)))
 	   (cond ((and special-operators
 		       (special-operator-p fspec))
 		  (values :special-operator nil decls)) ;; ... nil
