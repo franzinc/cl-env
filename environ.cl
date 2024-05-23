@@ -160,168 +160,169 @@ and names and semantics of environment kinds) have changed incompatibly.")
   )
 
 #+allegro
-(progn
+(defstruct (ha$h-table
+	    (:constructor .make-ha$h-table (type ht))
+	    (:print-object print-ha$h-table))
+  ht
+  type)
   
-  (defstruct (ha$h-table
-	      (:constructor .make-ha$h-table (type ht))
-	      (:print-object print-ha$h-table))
-    ht
-    type
-    #+ignore ;; for debugging
-    id)
-  
-  #+ignore
-  (defvar ha$h-table-id 0)
-  
-  (defmacro make-ha$h-table (&key test size rehash-size)
-    (let ((code (case (eval test)
-		  (eq
-		   (if* (and (eql size 5) (null rehash-size))
-		      then 1
-		    elseif (and (eql size 19) (eql rehash-size 3.0))
-		      then 2
-		    elseif (and (eql size 50) (null rehash-size))
-		      then 3
-		    elseif (and (eql size 100) (eql rehash-size 3.0))
-		      then 4
-		      else nil))
-		  (eql
-		   (and (eql size 5) (null rehash-size) 5))
-		  (equal
-		   (and (eql size 19) (null rehash-size) 6)))))
-      (when (null code)
-	(error "unsupported parameter set"))
-      `(let (#+ignore ;; for debugging
-	     (id (incf ha$h-table-id))
-	     (ht (.make-ha$h-table ,code nil)))
-	 #+ignore ;; for debugging
-	 (setf (ha$h-table-id ht) id)
-	 ht)))
+#+allegro
+(defmacro make-ha$h-table (&key test size rehash-size)
+  (let ((code (case (eval test)
+		(eq
+		 (if* (and (eql size 5) (null rehash-size))
+		    then 1
+		  elseif (and (eql size 19) (eql rehash-size 3.0))
+		    then 2
+		  elseif (and (eql size 50) (null rehash-size))
+		    then 3
+		  elseif (and (eql size 100) (eql rehash-size 3.0))
+		    then 4
+		    else nil))
+		(eql
+		 (and (eql size 5) (null rehash-size) 5))
+		(equal
+		 (and (eql size 19) (null rehash-size) 6)))))
+    (when (null code)
+      (error "unsupported parameter set"))
+    `(.make-ha$h-table ,code nil)))
 
   
-  (defun print-ha$h-table (ht s)
-    (let* ((state (ha$h-table-ht ht))
-	   (description (if* (null state)
-			   then "empty"
-			 elseif (consp state)
-			   then "singular"
-			   else "forwarded")))
-      (format s "#<~a ha$h-table[~a]>" description
-	      (ha$h-table-type ht))))
+#+allegro
+(defun print-ha$h-table (ht s)
+  (let* ((state (ha$h-table-ht ht))
+	 (description (if* (null state)
+			 then "empty"
+		       elseif (consp state)
+			 then "singular"
+			 else "forwarded")))
+    (format s "#<~a ha$h-table[~a]>" description
+	    (ha$h-table-type ht))))
   
-  (defmacro ha$h-match (obj1 obj2 ht)
-    `(case (ha$h-table-type ,ht)
-       ((1 2 3 4) (eq ,obj1 ,obj2))
-       (5 (eql ,obj1 ,obj2))
-       (6 (equal ,obj1 ,obj2))))
+#+allegro
+(defmacro ha$h-match (obj1 obj2 ht)
+  `(case (ha$h-table-type ,ht)
+     ((1 2 3 4) (eq ,obj1 ,obj2))
+     (5 (eql ,obj1 ,obj2))
+     (6 (equal ,obj1 ,obj2))))
   
-  (defun getha$h (obj ht)
-    (let ((state (ha$h-table-ht ht)))
-      (if* (null state)
-	 then nil
-       elseif (consp state)
-	 then (and (ha$h-match obj (car state) ht)
-		   (cdr state))
-	 else (gethash obj state))))
+#+allegro
+(defun getha$h (obj ht)
+  (let ((state (ha$h-table-ht ht)))
+    (if* (null state)
+       then nil
+     elseif (consp state)
+       then (and (ha$h-match obj (car state) ht)
+		 (cdr state))
+       else (gethash obj state))))
   
-  (defsetf getha$h putha$h)
-  (defsetf getha$h.i putha$h.i)
+#+allegro
+(defsetf getha$h putha$h)
+#+allegro
+(defsetf getha$h.i putha$h.i)
   
-  (defun putha$h (obj ht val)
-    (let ((state  (ha$h-table-ht ht)))
-      (if* (null state)
-	 then (setf (ha$h-table-ht ht) (cons obj val))
-	      val
-       elseif (consp state)
-	 then (if* (ha$h-match obj (car state) ht)
-		 then (setf (cdr state) val)
-		 else (setf (gethash obj (ha$h-convert ht)) val))
-	 else (setf (gethash obj state) val))))
+#+allegro
+(defun putha$h (obj ht val)
+  (let ((state  (ha$h-table-ht ht)))
+    (if* (null state)
+       then (setf (ha$h-table-ht ht) (cons obj val))
+	    val
+     elseif (consp state)
+       then (if* (ha$h-match obj (car state) ht)
+	       then (setf (cdr state) val)
+	       else (setf (gethash obj (ha$h-convert ht)) val))
+       else (setf (gethash obj state) val))))
   
-  (defun putha$h.i (obj ht kvec i val)
-    (let ((state  (ha$h-table-ht ht)))
-      (if* (null state)
-	 then (setf (ha$h-table-ht ht) (cons obj val))
-	      val
-       elseif (consp state)
-	 then (setf (cdr state) val)
-	 else (excl::%puthash.i obj state kvec i val))))
+#+allegro
+(defun putha$h.i (obj ht kvec i val)
+  (let ((state  (ha$h-table-ht ht)))
+    (if* (null state)
+       then (setf (ha$h-table-ht ht) (cons obj val))
+	    val
+     elseif (consp state)
+       then (setf (cdr state) val)
+       else (excl::%puthash.i obj state kvec i val))))
   
-  (defun ha$h-table-count (ht)
-    (let ((state  (ha$h-table-ht ht)))
-      (if* (null state)
-	 then 0
-       elseif (consp state)
-	 then 1
-	 else (hash-table-count state))))
+#+allegro
+(defun ha$h-table-count (ht)
+  (let ((state  (ha$h-table-ht ht)))
+    (if* (null state)
+       then 0
+     elseif (consp state)
+       then 1
+       else (hash-table-count state))))
   
-  (defun clrha$h (ht)
-    (let ((state (ha$h-table-ht ht)))
-      (if* (null state)
-	 then nil
-       elseif (consp state)
-	 then (setf (ha$h-table-ht ht) nil)
-	 else (clrhash state))))
+#+allegro
+(defun clrha$h (ht)
+  (let ((state (ha$h-table-ht ht)))
+    (if* (null state)
+       then nil
+     elseif (consp state)
+       then (setf (ha$h-table-ht ht) nil)
+       else (clrhash state))))
+
+#+allegro
+(defun remha$h (obj ht)
+  (let ((state (ha$h-table-ht ht)))
+    (if* (null state)
+       then nil
+     elseif (consp state)
+       then (if* (ha$h-match obj (car state) ht)
+	       then (setf (ha$h-table-ht ht) nil)
+		    t)
+       else (remhash obj state))))
   
-  (defun remha$h (obj ht)
-    (let ((state (ha$h-table-ht ht)))
-      (if* (null state)
-	 then nil
-       elseif (consp state)
-	 then (if* (ha$h-match obj (car state) ht)
-		 then (setf (ha$h-table-ht ht) nil)
-		      t)
-	 else (remhash obj state))))
+#+allegro
+(defun remha$h.i (obj ht kv i)
+  (let ((state (ha$h-table-ht ht)))
+    (if* (null state)
+       then nil
+     elseif (consp state)
+       then (if* (ha$h-match obj (car state) ht)
+	       then (setf (ha$h-table-ht ht) nil)
+		    t)
+       else (excl::remhash.i obj state kv i))))
   
-  (defun remha$h.i (obj ht kv i)
-    (let ((state (ha$h-table-ht ht)))
-      (if* (null state)
-	 then nil
-       elseif (consp state)
-	 then (if* (ha$h-match obj (car state) ht)
-		 then (setf (ha$h-table-ht ht) nil)
-		      t)
-	 else (excl::remhash.i obj state kv i))))
+#+allegro
+(defun mapha$h (f ht)
+  (let ((state  (ha$h-table-ht ht)))
+    (if* (null state)
+       then nil
+     elseif (consp state)
+       then (funcall f (car state) (cdr state))
+	    nil
+       else (maphash f state))))
   
-  (defun mapha$h (f ht)
-    (let ((state  (ha$h-table-ht ht)))
-      (if* (null state)
-	 then nil
-       elseif (consp state)
-	 then (funcall f (car state) (cdr state))
-	      nil
-	 else (maphash f state))))
+#+allegro
+(defun mapha$h.env (f ht)
+  (let ((state  (ha$h-table-ht ht)))
+    (if* (null state)
+       then nil
+     elseif (consp state)
+       then (funcall f (car state) (cdr state) nil 0)
+	    nil
+       else (excl::maphash-env f state))))
   
-  (defun mapha$h.env (f ht)
-    (let ((state  (ha$h-table-ht ht)))
-      (if* (null state)
-	 then nil
-       elseif (consp state)
-	 then (funcall f (car state) (cdr state) nil 0)
-	      nil
-	 else (excl::maphash-env f state))))
-  
-  ;; cannot handle weak-key hashvectors without changing
-  ;; remhash.i in smphash.cl
-  (defun ha$h-convert (ht)
-    (let ((state (ha$h-table-ht ht))
-	  (real-ht (case (ha$h-table-type ht)
-		     (1 (make-hash-table :test 'eq :size 5))
-		     (2 (make-hash-table :test 'eq :size 19 :rehash-size 3.0))
-		     (3 (make-hash-table :test 'eq :size 50))
-		     (4 (make-hash-table :test 'eq :size 100 :rehash-size 3.0))
-		     (5 (make-hash-table :test 'eql :size 5))
-		     (6 (make-hash-table :test 'equal :size 19)))))
-      (if* (null state)
-	 then (setf (ha$h-table-ht ht) real-ht)
-	      real-ht
-       elseif (consp state)
-	 then (setf (ha$h-table-ht ht) real-ht)
-	      (setf (gethash (car state) real-ht) (cdr state))
-	      real-ht
-	 else (error "attempt to reexpand an expanded ha$h-table"))))
-  
-  )
+;; cannot handle weak-key hashvectors without changing
+;; remhash.i in smphash.cl
+#+allegro
+(defun ha$h-convert (ht)
+  (let ((state (ha$h-table-ht ht))
+	(real-ht (case (ha$h-table-type ht)
+		   (1 (make-hash-table :test 'eq :size 5))
+		   (2 (make-hash-table :test 'eq :size 19 :rehash-size 3.0))
+		   (3 (make-hash-table :test 'eq :size 50))
+		   (4 (make-hash-table :test 'eq :size 100 :rehash-size 3.0))
+		   (5 (make-hash-table :test 'eql :size 5))
+		   (6 (make-hash-table :test 'equal :size 19)))))
+    (if* (null state)
+       then (setf (ha$h-table-ht ht) real-ht)
+	    real-ht
+     elseif (consp state)
+       then (setf (ha$h-table-ht ht) real-ht)
+	    (setf (gethash (car state) real-ht) (cdr state))
+	    real-ht
+       else (error "attempt to reexpand an expanded ha$h-table"))))
 
 ;; env-glob-symbol-macro-p returns a spec iff the symbol has a symbol-macro,
 ;; whose value can be found with env-glob-symbol-macro-val, or nil if
