@@ -117,6 +117,21 @@
 	(values :declare `(declaration ,@base))))))
 
 
+
+(define-declaration excl::function-defining-macro (&rest fnames)
+  .function-defining-macro.
+  :function
+  (lambda (declaration env)
+    (declare (ignore env))
+    (values :function
+	    (let ((spec (list 'excl::function-defining-macro t))
+		  res)
+	      (dolist (var (cdr declaration))
+		(if* (function-name-p var)
+		   then (push (cons var spec) res)
+		   else (excl::.program-error "Illegal function-defining-macro declaration: ~s." var)))
+	      (nreverse res)))))
+
 ;; The type declaration
 
 ;; This function might be redefined in the implementation's compiler:
